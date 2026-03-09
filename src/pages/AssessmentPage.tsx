@@ -4,6 +4,7 @@ import { Mic, Type, ImageIcon, ArrowLeft, CheckCircle2, BookOpen, Calculator } f
 import VoiceRecorder from "../components/VoiceRecorder";
 import TextInputPanel from "../components/TextInputPanel";
 import ImageUploader from "../components/ImageUploader";
+import TranscriptionBoard from "../components/TranscriptionBoard";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -245,51 +246,13 @@ const AssessmentPage = () => {
           )}
         </motion.div>
 
-        {/* Transcription Results */}
+        {/* Transcription Results Board */}
         {transcriptionResult && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 rounded-2xl bg-card p-6 shadow-card"
-          >
-            <h3 className="text-sm font-bold text-foreground mb-3">Transcription Result</h3>
-            <p className="text-sm text-foreground bg-muted rounded-lg p-3 mb-4">
-              "{transcriptionResult.transcription}"
-            </p>
-
-            {transcriptionResult.accuracy_percentage !== undefined && (
-              <div className="flex gap-4 mb-4">
-                <div className={`flex-1 rounded-xl p-3 text-center ${isEgra ? "bg-egra-light" : "bg-egma-light"}`}>
-                  <p className={`text-2xl font-black ${isEgra ? "text-egra" : "text-egma"}`}>
-                    {transcriptionResult.accuracy_percentage}%
-                  </p>
-                  <p className="text-xs text-muted-foreground font-semibold">Accuracy</p>
-                </div>
-                <div className={`flex-1 rounded-xl p-3 text-center ${isEgra ? "bg-egra-light" : "bg-egma-light"}`}>
-                  <p className={`text-2xl font-black ${isEgra ? "text-egra" : "text-egma"}`}>
-                    {transcriptionResult.words_correct}/{transcriptionResult.words_total}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-semibold">Words Correct</p>
-                </div>
-              </div>
-            )}
-
-            {transcriptionResult.errors && transcriptionResult.errors.length > 0 && (
-              <div>
-                <h4 className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wide">Errors</h4>
-                <div className="space-y-1.5">
-                  {transcriptionResult.errors.map((err, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm rounded-lg bg-destructive/10 px-3 py-1.5">
-                      <span className="font-semibold text-destructive">{err.expected}</span>
-                      <span className="text-muted-foreground">→</span>
-                      <span className="text-foreground">{err.actual}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">{err.type}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
+          <TranscriptionBoard
+            result={transcriptionResult}
+            expectedText={getExpectedText()}
+            isEgra={isEgra}
+          />
         )}
 
         {/* Task Navigation */}
