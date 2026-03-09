@@ -26,11 +26,15 @@ serve(async (req) => {
       });
     }
 
-    // Convert audio to base64
+    // Convert audio to base64 in chunks to avoid stack overflow
     const arrayBuffer = await audioFile.arrayBuffer();
-    const base64Audio = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    );
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64Audio = btoa(binary);
 
     const systemPrompt = `You are a speech-to-text transcription assistant for an Early Grade Reading Assessment (EGRA). 
 Your job is to accurately transcribe what the student reads aloud from the provided text.
