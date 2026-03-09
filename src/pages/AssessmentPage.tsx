@@ -4,6 +4,7 @@ import { Mic, Type, ImageIcon, ArrowLeft, CheckCircle2, BookOpen, Calculator } f
 import VoiceRecorder from "../components/VoiceRecorder";
 import TextInputPanel from "../components/TextInputPanel";
 import ImageUploader from "../components/ImageUploader";
+import TranscriptionBoard from "../components/TranscriptionBoard";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
