@@ -9,18 +9,63 @@ import { toast } from "sonner";
 
 type InputMode = "voice" | "text" | "image";
 
-const sampleTasks: Record<string, { title: string; prompt: string }[]> = {
+interface TranscriptionResult {
+  transcription: string;
+  words_correct?: number;
+  words_total?: number;
+  accuracy_percentage?: number;
+  errors?: Array<{ expected: string; actual: string; type: string }>;
+}
+
+interface TaskContent {
+  title: string;
+  prompt: string;
+  content?: string[];
+  passage?: string;
+}
+
+const sampleTasks: Record<string, TaskContent[]> = {
   egra: [
-    { title: "Letter Recognition", prompt: "Read aloud the letters shown on the screen." },
-    { title: "Familiar Words", prompt: "Read these familiar words as quickly as you can." },
-    { title: "Oral Reading Fluency", prompt: "Read the passage below aloud." },
-    { title: "Reading Comprehension", prompt: "Answer the questions about the passage you read." },
+    {
+      title: "Letter Recognition",
+      prompt: "Read aloud the letters shown below.",
+      content: [
+        "A", "m", "S", "t", "E", "r", "O", "b", "L", "d",
+        "P", "n", "I", "c", "K", "f", "U", "g", "H", "w",
+      ],
+    },
+    {
+      title: "Familiar Words",
+      prompt: "Read these words as quickly and clearly as you can.",
+      content: [
+        "the", "cat", "big", "run", "dog",
+        "sun", "hat", "red", "sit", "mom",
+        "cup", "bed", "fish", "play", "tree",
+        "ball", "hand", "jump", "milk", "book",
+      ],
+    },
+    {
+      title: "Oral Reading Fluency",
+      prompt: "Read the passage below aloud. Try to read clearly and at a comfortable pace.",
+      passage:
+        "The sun was warm on the green hill. A small dog ran across the grass. It saw a red ball near the tree. The dog picked up the ball and ran back to the boy. The boy smiled and threw the ball again. They played until the sun went down.",
+    },
+    {
+      title: "Reading Comprehension",
+      prompt: "Answer the questions about the passage you just read.",
+      content: [
+        "Where was the dog?",
+        "What color was the ball?",
+        "Who threw the ball?",
+        "When did they stop playing?",
+      ],
+    },
   ],
   egma: [
-    { title: "Number Identification", prompt: "Identify the numbers shown on the screen." },
-    { title: "Quantity Comparison", prompt: "Which number is bigger? Say or type your answer." },
-    { title: "Addition & Subtraction", prompt: "Solve the problems shown below." },
-    { title: "Word Problems", prompt: "Listen to or read the word problem and provide your answer." },
+    { title: "Number Identification", prompt: "Identify the numbers shown on the screen.", content: ["3", "7", "12", "25", "48", "63", "81", "100", "156", "209"] },
+    { title: "Quantity Comparison", prompt: "Which number is bigger? Say or type your answer.", content: ["5 or 8?", "12 or 9?", "34 or 43?", "67 or 76?"] },
+    { title: "Addition & Subtraction", prompt: "Solve the problems shown below.", content: ["3 + 2 = ?", "7 - 4 = ?", "8 + 5 = ?", "15 - 6 = ?", "12 + 9 = ?", "20 - 8 = ?"] },
+    { title: "Word Problems", prompt: "Listen to or read the word problem and provide your answer.", content: ["Sam has 3 apples. He gets 4 more. How many does he have?", "There are 10 birds on a tree. 6 fly away. How many are left?"] },
   ],
 };
 
@@ -36,20 +81,40 @@ const AssessmentPage = () => {
   const [currentTask, setCurrentTask] = useState(0);
   const [inputMode, setInputMode] = useState<InputMode>("voice");
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set());
+  const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
 
   const assessmentType = type === "egma" ? "egma" : "egra";
   const tasks = sampleTasks[assessmentType];
   const task = tasks[currentTask];
   const isEgra = assessmentType === "egra";
 
+  const getExpectedText = () => {
+    if (task.passage) return task.passage;
+    if (task.content) return task.content.join(" ");
+    return "";
+  };
+
   const handleSubmission = (data: string | Blob | File) => {
     toast.success(`Response recorded for "${task.title}"`);
     setCompletedTasks((prev) => new Set(prev).add(currentTask));
     if (currentTask < tasks.length - 1) {
-      setTimeout(() => setCurrentTask((c) => c + 1), 800);
+      setTimeout(() => {
+        setCurrentTask((c) => c + 1);
+        setTranscriptionResult(null);
+      }, 800);
     } else {
       toast.success("Assessment complete! 🎉");
     }
+  };
+
+  const handleTranscriptionResult = (result: TranscriptionResult) => {
+    setTranscriptionResult(result);
+    toast.success("Transcription complete!");
+  };
+
+  const handleTaskChange = (i: number) => {
+    setCurrentTask(i);
+    setTranscriptionResult(null);
   };
 
   return (
@@ -67,7 +132,6 @@ const AssessmentPage = () => {
             <h1 className="text-sm font-bold text-foreground">{isEgra ? "EGRA" : "EGMA"} Assessment</h1>
             <p className="text-xs text-muted-foreground">Task {currentTask + 1} of {tasks.length}</p>
           </div>
-          {/* Progress */}
           <div className="ml-auto flex gap-1.5">
             {tasks.map((_, i) => (
               <div
@@ -110,6 +174,31 @@ const AssessmentPage = () => {
                   <CheckCircle2 className={`ml-auto h-6 w-6 shrink-0 ${isEgra ? "text-egra" : "text-egma"}`} />
                 )}
               </div>
+
+              {/* Reading Content */}
+              {task.content && !task.passage && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {task.content.map((item, i) => (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-lg font-bold ${
+                        isEgra ? "bg-egra-light text-egra" : "bg-egma-light text-egma"
+                      }`}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Reading Passage */}
+              {task.passage && (
+                <div className={`mt-4 rounded-xl p-4 text-base leading-relaxed font-medium text-foreground ${
+                  isEgra ? "bg-egra-light/50" : "bg-egma-light/50"
+                }`}>
+                  {task.passage}
+                </div>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>
@@ -142,7 +231,11 @@ const AssessmentPage = () => {
           className="rounded-2xl bg-card p-6 shadow-card"
         >
           {inputMode === "voice" && (
-            <VoiceRecorder onRecordingComplete={(blob) => handleSubmission(blob)} />
+            <VoiceRecorder
+              onRecordingComplete={(blob) => handleSubmission(blob)}
+              expectedText={getExpectedText()}
+              onTranscriptionResult={handleTranscriptionResult}
+            />
           )}
           {inputMode === "text" && (
             <TextInputPanel onSubmit={(text) => handleSubmission(text)} />
@@ -152,12 +245,59 @@ const AssessmentPage = () => {
           )}
         </motion.div>
 
+        {/* Transcription Results */}
+        {transcriptionResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 rounded-2xl bg-card p-6 shadow-card"
+          >
+            <h3 className="text-sm font-bold text-foreground mb-3">Transcription Result</h3>
+            <p className="text-sm text-foreground bg-muted rounded-lg p-3 mb-4">
+              "{transcriptionResult.transcription}"
+            </p>
+
+            {transcriptionResult.accuracy_percentage !== undefined && (
+              <div className="flex gap-4 mb-4">
+                <div className={`flex-1 rounded-xl p-3 text-center ${isEgra ? "bg-egra-light" : "bg-egma-light"}`}>
+                  <p className={`text-2xl font-black ${isEgra ? "text-egra" : "text-egma"}`}>
+                    {transcriptionResult.accuracy_percentage}%
+                  </p>
+                  <p className="text-xs text-muted-foreground font-semibold">Accuracy</p>
+                </div>
+                <div className={`flex-1 rounded-xl p-3 text-center ${isEgra ? "bg-egra-light" : "bg-egma-light"}`}>
+                  <p className={`text-2xl font-black ${isEgra ? "text-egra" : "text-egma"}`}>
+                    {transcriptionResult.words_correct}/{transcriptionResult.words_total}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-semibold">Words Correct</p>
+                </div>
+              </div>
+            )}
+
+            {transcriptionResult.errors && transcriptionResult.errors.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wide">Errors</h4>
+                <div className="space-y-1.5">
+                  {transcriptionResult.errors.map((err, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm rounded-lg bg-destructive/10 px-3 py-1.5">
+                      <span className="font-semibold text-destructive">{err.expected}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="text-foreground">{err.actual}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{err.type}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {/* Task Navigation */}
         <div className="mt-6 flex gap-2 justify-center">
           {tasks.map((t, i) => (
             <button
               key={i}
-              onClick={() => setCurrentTask(i)}
+              onClick={() => handleTaskChange(i)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 i === currentTask
                   ? isEgra ? "bg-egra text-primary-foreground" : "bg-egma text-primary-foreground"
