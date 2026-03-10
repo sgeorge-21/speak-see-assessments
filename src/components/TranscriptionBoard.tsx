@@ -7,15 +7,20 @@ interface TranscriptionResult {
   words_total?: number;
   accuracy_percentage?: number;
   errors?: Array<{ expected: string; actual: string; type: string }>;
+  answer?: string;
+  is_answer_present?: boolean;
 }
+
+type SourceType = "voice" | "text" | "image";
 
 interface TranscriptionBoardProps {
   result: TranscriptionResult;
   expectedText: string;
   isEgra: boolean;
+  source?: SourceType;
 }
 
-const TranscriptionBoard = ({ result, expectedText, isEgra }: TranscriptionBoardProps) => {
+const TranscriptionBoard = ({ result, expectedText, isEgra, source }: TranscriptionBoardProps) => {
   const themeColor = isEgra ? "egra" : "egma";
 
   // Build a map of errors by expected word (lowercase) for quick lookup
@@ -53,48 +58,83 @@ const TranscriptionBoard = ({ result, expectedText, isEgra }: TranscriptionBoard
         </div>
       )}
 
-      {/* Word-by-word comparison board */}
-      <div className="rounded-2xl bg-card p-5 shadow-card">
-        <h3 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wide">
-          Word-by-Word Comparison
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {expectedTokens.map((token, i) => {
-            const err = errorMap.get(token.toLowerCase());
-            const isCorrect = !err;
+      {/* Word-by-word comparison board (only when we have expected tokens) */}
+      {expectedTokens.length > 0 && result.words_total !== undefined && (
+        <div className="rounded-2xl bg-card p-5 shadow-card">
+          <h3 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wide">
+            Word-by-Word Comparison
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {expectedTokens.map((token, i) => {
+              const err = errorMap.get(token.toLowerCase());
+              const isCorrect = !err;
 
-            return (
-              <div
-                key={i}
-                className={`relative group inline-flex flex-col items-center rounded-lg px-3 py-2 text-sm font-bold transition-all ${
-                  isCorrect
-                    ? `bg-${themeColor}-light text-${themeColor} ring-1 ring-${themeColor}/20`
-                    : "bg-destructive/10 text-destructive ring-1 ring-destructive/20"
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  {isCorrect ? (
-                    <CheckCircle2 className="h-3 w-3 opacity-60" />
-                  ) : (
-                    <XCircle className="h-3 w-3 opacity-60" />
-                  )}
-                  {token}
-                </span>
-                {err && (
-                  <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                    said: "{err.actual}" ({err.type})
+              return (
+                <div
+                  key={i}
+                  className={`relative group inline-flex flex-col items-center rounded-lg px-3 py-2 text-sm font-bold transition-all ${
+                    isCorrect
+                      ? `bg-${themeColor}-light text-${themeColor} ring-1 ring-${themeColor}/20`
+                      : "bg-destructive/10 text-destructive ring-1 ring-destructive/20"
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    {isCorrect ? (
+                      <CheckCircle2 className="h-3 w-3 opacity-60" />
+                    ) : (
+                      <XCircle className="h-3 w-3 opacity-60" />
+                    )}
+                    {token}
                   </span>
-                )}
-              </div>
-            );
-          })}
+                  {err && (
+                    <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                      said: "{err.actual}" ({err.type})
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Full transcription */}
+      {/* Student answer vs expected/correct answer */}
+      {(result.answer !== undefined || expectedText) && (
+        <div className="rounded-2xl bg-card p-5 shadow-card">
+          <h3 className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wide">
+            Answers
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Student Answer</h4>
+              <div className="text-sm text-foreground bg-muted rounded-lg p-3 leading-relaxed min-h-[3rem]">
+                "{result.answer ?? result.transcription}"
+              </div>
+              {result.is_answer_present !== undefined && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {result.is_answer_present ? (
+                    <span className="font-semibold text-foreground">Answer detected</span>
+                  ) : (
+                    <span className="font-semibold text-destructive">No clear answer detected</span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Correct / Expected Answer</h4>
+              <div className="text-sm text-foreground bg-muted rounded-lg p-3 leading-relaxed min-h-[3rem]">
+                "{expectedText || "—"}"
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full transcription / extracted answer */}
       <div className="rounded-2xl bg-card p-5 shadow-card">
         <h3 className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wide">
-          What was heard
+          {source === "image" ? "What was seen" : source === "text" ? "What was typed" : "What was heard"}
         </h3>
         <p className="text-sm text-foreground bg-muted rounded-lg p-3 leading-relaxed">
           "{result.transcription}"

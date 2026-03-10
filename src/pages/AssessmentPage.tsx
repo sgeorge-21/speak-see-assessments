@@ -317,6 +317,7 @@ const AssessmentPage = () => {
               result={transcriptionResult}
               expectedText={getExpectedText()}
               isEgra={isEgra}
+              source={inputMode}
             />
             <motion.button
               initial={{ opacity: 0, y: 8 }}

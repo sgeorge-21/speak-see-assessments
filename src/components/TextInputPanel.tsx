@@ -8,6 +8,8 @@ interface TranscriptionResult {
   words_total?: number;
   accuracy_percentage?: number;
   errors?: Array<{ expected: string; actual: string; type: string }>;
+  answer?: string;
+  is_answer_present?: boolean;
 }
 
 interface TextInputPanelProps {
@@ -63,6 +65,13 @@ function compareTexts(typed: string, expected: string): TranscriptionResult {
   };
 }
 
+const looksLikeQuestion = (s: string | undefined) => {
+  if (!s) return false;
+  const trimmed = s.trim().toLowerCase();
+  if (trimmed.includes("?")) return true;
+  return /^(where|what|who|when|why|how|which|whom|did|do|does|is|are|was|were)\b/.test(trimmed);
+};
+
 const TextInputPanel = ({
   onSubmit,
   expectedText,
@@ -81,8 +90,17 @@ const TextInputPanel = ({
       setIsComparing(true);
       // Simulate brief processing
       setTimeout(() => {
-        const result = compareTexts(trimmed, expectedText);
-        onComparisonResult(result);
+        if (looksLikeQuestion(expectedText)) {
+          const result: TranscriptionResult = {
+            transcription: trimmed,
+            answer: trimmed,
+            is_answer_present: trimmed.length > 0,
+          };
+          onComparisonResult(result);
+        } else {
+          const result = compareTexts(trimmed, expectedText);
+          onComparisonResult(result);
+        }
         setIsComparing(false);
       }, 300);
     }
