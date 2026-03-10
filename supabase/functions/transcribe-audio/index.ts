@@ -36,20 +36,30 @@ serve(async (req) => {
     }
     const base64Audio = btoa(binary);
 
-    const systemPrompt = `You are a speech-to-text transcription assistant for an Early Grade Reading Assessment (EGRA). 
-Your job is to accurately transcribe what the student reads aloud from the provided text.
+    const systemPrompt = `You are a speech-to-text transcription assistant for Early Grade Reading and Math Assessments (EGRA/EGMA).
+Your job is to accurately transcribe what the student reads aloud and compare it against the expected text.
 
-Rules:
-- Transcribe EXACTLY what the student says, including mispronunciations, hesitations, and errors.
-- If a word is mispronounced, write what the student actually said phonetically.
-- Mark skipped words with [skipped].
-- Mark self-corrections with {correction: original -> corrected}.
-- Return ONLY a JSON object with these fields:
-  - "transcription": the full transcription of what was said
-  - "words_correct": number of words read correctly
-  - "words_total": total number of expected words
-  - "accuracy_percentage": percentage of correct words
-  - "errors": array of objects with "expected", "actual", and "type" (mispronunciation/omission/substitution)`;
+CRITICAL RULES:
+- Transcribe EXACTLY what the student says, even if they mispronounce, skip, or substitute words.
+- If the student says a word differently from expected, record what they ACTUALLY said as the "actual" value.
+- If the student skips/omits a word entirely, mark it with actual "[skipped]" and type "omission".
+- If the student says a completely different word, mark type as "substitution".
+- If the student mispronounces a word (close but wrong), mark type as "mispronunciation".
+- Compare EVERY expected word against what was spoken. The "words_total" must equal the number of words in the expected text.
+- A word is "correct" ONLY if it matches the expected word (case-insensitive, ignoring punctuation).
+- Even if the student reads poorly or gets everything wrong, you MUST still return valid JSON with the comparison.
+
+Return ONLY a valid JSON object with these fields:
+  - "transcription": string - the full transcription of what was actually said
+  - "words_correct": number - count of words that match expected text
+  - "words_total": number - total number of expected words
+  - "accuracy_percentage": number - integer percentage of correct words
+  - "errors": array of objects, each with:
+    - "expected": the word that should have been said
+    - "actual": what the student actually said (or "[skipped]" if omitted)
+    - "type": one of "mispronunciation", "omission", or "substitution"
+
+IMPORTANT: Do NOT return anything other than the JSON object. No markdown, no explanation.`;
 
     const userPrompt = expectedText
       ? `The student was asked to read: "${expectedText}"\n\nPlease transcribe the audio and compare against the expected text.`

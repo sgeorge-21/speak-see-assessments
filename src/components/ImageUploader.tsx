@@ -1,21 +1,63 @@
 import { useState, useRef } from "react";
-import { Upload, Image, X } from "lucide-react";
+import { Upload, Image, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface TranscriptionResult {
+  transcription: string;
+  words_correct?: number;
+  words_total?: number;
+  accuracy_percentage?: number;
+  errors?: Array<{ expected: string; actual: string; type: string }>;
+}
 
 interface ImageUploaderProps {
   onImageSelected: (file: File) => void;
+  expectedText?: string;
+  onComparisonResult?: (result: TranscriptionResult) => void;
 }
 
-const ImageUploader = ({ onImageSelected }: ImageUploaderProps) => {
+const ImageUploader = ({ onImageSelected, expectedText, onComparisonResult }: ImageUploaderProps) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const processImage = async (file: File) => {
+    if (!expectedText || !onComparisonResult) return;
+
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file, file.name);
+      formData.append("expectedText", expectedText);
+
+      const { data, error } = await supabase.functions.invoke("ocr-compare", {
+        body: formData,
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      onComparisonResult(data as TranscriptionResult);
+    } catch (err) {
+      console.error("OCR comparison failed:", err);
+      toast.error("Image comparison failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith("image/")) return;
     const url = URL.createObjectURL(file);
     setPreview(url);
     onImageSelected(file);
+    processImage(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -41,6 +83,14 @@ const ImageUploader = ({ onImageSelected }: ImageUploaderProps) => {
             className="relative overflow-hidden rounded-lg border-2 border-border"
           >
             <img src={preview} alt="Uploaded" className="w-full max-h-64 object-contain bg-muted" />
+            {isProcessing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <p className="text-xs font-semibold text-muted-foreground">Reading image...</p>
+                </div>
+              </div>
+            )}
             <button
               onClick={clearPreview}
               className="absolute top-2 right-2 rounded-full bg-foreground/70 p-1.5 text-background transition-colors hover:bg-foreground"

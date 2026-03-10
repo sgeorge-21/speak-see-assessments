@@ -295,10 +295,18 @@ const AssessmentPage = () => {
             />
           )}
           {inputMode === "text" && (
-            <TextInputPanel onSubmit={(text) => handleSubmission(text)} />
+            <TextInputPanel
+              onSubmit={(text) => handleSubmission(text)}
+              expectedText={getExpectedText()}
+              onComparisonResult={handleTranscriptionResult}
+            />
           )}
           {inputMode === "image" && (
-            <ImageUploader onImageSelected={(file) => handleSubmission(file)} />
+            <ImageUploader
+              onImageSelected={(file) => handleSubmission(file)}
+              expectedText={getExpectedText()}
+              onComparisonResult={handleTranscriptionResult}
+            />
           )}
         </motion.div>
 
