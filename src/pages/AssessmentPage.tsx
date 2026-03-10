@@ -5,6 +5,8 @@ import VoiceRecorder from "../components/VoiceRecorder";
 import TextInputPanel from "../components/TextInputPanel";
 import ImageUploader from "../components/ImageUploader";
 import TranscriptionBoard from "../components/TranscriptionBoard";
+import ListenBar from "../components/ListenBar";
+import AssessmentScoreSummary from "../components/AssessmentScoreSummary";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -16,6 +18,13 @@ interface TranscriptionResult {
   words_total?: number;
   accuracy_percentage?: number;
   errors?: Array<{ expected: string; actual: string; type: string }>;
+}
+
+interface TaskScore {
+  taskTitle: string;
+  wordsCorrect: number;
+  wordsTotal: number;
+  accuracy: number;
 }
 
 interface TaskContent {
@@ -83,6 +92,8 @@ const AssessmentPage = () => {
   const [inputMode, setInputMode] = useState<InputMode>("voice");
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set());
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
+  const [taskScores, setTaskScores] = useState<TaskScore[]>([]);
+  const [showSummary, setShowSummary] = useState(false);
 
   const assessmentType = type === "egma" ? "egma" : "egra";
   const tasks = sampleTasks[assessmentType];
@@ -98,25 +109,63 @@ const AssessmentPage = () => {
   const handleSubmission = (data: string | Blob | File) => {
     toast.success(`Response recorded for "${task.title}"`);
     setCompletedTasks((prev) => new Set(prev).add(currentTask));
-    if (currentTask < tasks.length - 1) {
-      setTimeout(() => {
-        setCurrentTask((c) => c + 1);
-        setTranscriptionResult(null);
-      }, 800);
-    } else {
-      toast.success("Assessment complete! 🎉");
-    }
+    // Don't auto-advance — wait for transcription verification
   };
 
   const handleTranscriptionResult = (result: TranscriptionResult) => {
     setTranscriptionResult(result);
+
+    // Save score for this task
+    const score: TaskScore = {
+      taskTitle: task.title,
+      wordsCorrect: result.words_correct ?? 0,
+      wordsTotal: result.words_total ?? 0,
+      accuracy: result.accuracy_percentage ?? 0,
+    };
+    setTaskScores((prev) => {
+      const updated = prev.filter((s) => s.taskTitle !== task.title);
+      return [...updated, score];
+    });
+
+    setCompletedTasks((prev) => new Set(prev).add(currentTask));
     toast.success("Transcription complete!");
+  };
+
+  const handleNextTask = () => {
+    if (currentTask < tasks.length - 1) {
+      setCurrentTask((c) => c + 1);
+      setTranscriptionResult(null);
+    } else {
+      setShowSummary(true);
+    }
   };
 
   const handleTaskChange = (i: number) => {
     setCurrentTask(i);
     setTranscriptionResult(null);
   };
+
+  if (showSummary) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className={`sticky top-0 z-10 border-b border-border backdrop-blur-md ${isEgra ? "bg-egra-light/80" : "bg-egma-light/80"}`}>
+          <div className="container flex items-center gap-3 py-3">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isEgra ? "bg-egra" : "bg-egma"} text-primary-foreground`}>
+              {isEgra ? <BookOpen className="h-4 w-4" /> : <Calculator className="h-4 w-4" />}
+            </div>
+            <h1 className="text-sm font-bold text-foreground">{isEgra ? "EGRA" : "EGMA"} Results</h1>
+          </div>
+        </header>
+        <main className="container max-w-2xl py-8">
+          <AssessmentScoreSummary
+            scores={taskScores}
+            isEgra={isEgra}
+            onGoBack={() => navigate("/")}
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,14 +200,14 @@ const AssessmentPage = () => {
       </header>
 
       <main className="container max-w-2xl py-8">
-        {/* Task Card */}
+        {/* Task Card — always visible */}
         <AnimatePresence mode="wait">
           <motion.div
             key={currentTask}
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -30 }}
-            className="mb-8"
+            className="mb-4"
           >
             <div className="rounded-2xl bg-card p-6 shadow-card">
               <div className="flex items-start gap-3 mb-4">
@@ -204,6 +253,13 @@ const AssessmentPage = () => {
           </motion.div>
         </AnimatePresence>
 
+        {/* Listen Bar */}
+        {getExpectedText() && (
+          <div className="mb-4">
+            <ListenBar text={getExpectedText()} isEgra={isEgra} />
+          </div>
+        )}
+
         {/* Input Mode Tabs */}
         <div className="mb-6 flex gap-2">
           {(Object.keys(modeConfig) as InputMode[]).map((mode) => {
@@ -248,11 +304,23 @@ const AssessmentPage = () => {
 
         {/* Transcription Results Board */}
         {transcriptionResult && (
-          <TranscriptionBoard
-            result={transcriptionResult}
-            expectedText={getExpectedText()}
-            isEgra={isEgra}
-          />
+          <>
+            <TranscriptionBoard
+              result={transcriptionResult}
+              expectedText={getExpectedText()}
+              isEgra={isEgra}
+            />
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={handleNextTask}
+              className={`mt-6 w-full rounded-xl px-4 py-3 font-bold text-primary-foreground transition-transform hover:scale-[1.02] ${
+                isEgra ? "bg-egra" : "bg-egma"
+              }`}
+            >
+              {currentTask < tasks.length - 1 ? "Next Task →" : "View Results 🎉"}
+            </motion.button>
+          </>
         )}
 
         {/* Task Navigation */}
